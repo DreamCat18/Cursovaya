@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Рус-корректор — проверка текста</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+</head>
+<body>
+
+  <header class="header">
+    <div class="header__inner">
+      <div class="header__logo">
+        <span class="logo__mark">Р</span>
+        <span class="logo__text">Рус-корректор</span>
+      </div>
+      <nav class="header__nav">
+        <button class="nav__btn nav__btn--active" data-tab="editor">Текст</button>
+        <button class="nav__btn" data-tab="chat">Чат</button>
+        <button class="nav__btn" data-tab="help">Как работает</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="panel panel--editor" id="panel-editor">
+      <div class="panel__head">
+        <h2 class="panel__title">Ваш текст</h2>
+        <div class="panel__actions">
+          <button class="btn btn--ghost" id="btn-clear">Очистить</button>
+          <button class="btn btn--ghost" id="btn-copy" disabled>Скопировать</button>
+          <button class="btn btn--primary" id="btn-check">Проверить</button>
+        </div>
+      </div>
+
+      <div class="editor__wrap">
+        <div
+          id="editor"
+          class="editor"
+          contenteditable="true"
+          spellcheck="false"
+          data-placeholder="Вставьте или напишите текст на русском языке…"></div>
+      </div>
+
+      <div class="editor__meta">
+        <span id="char-count">0 знаков</span>
+        <span id="status-text" class="status">Готово к проверке</span>
+      </div>
+    </section>
+
+    <aside class="panel panel--errors" id="panel-errors">
+      <div class="panel__head">
+        <h2 class="panel__title">Найденные ошибки</h2>
+        <span class="badge" id="errors-count">0</span>
+      </div>
+
+      <div class="errors__filters">
+        <button class="chip chip--active" data-filter="all">Все</button>
+        <button class="chip" data-filter="grammar">Грамматика</button>
+        <button class="chip" data-filter="syntax">Синтаксис</button>
+        <button class="chip" data-filter="lexis">Лексика</button>
+        <button class="chip" data-filter="punct">Пунктуация</button>
+      </div>
+
+      <ul class="errors__list" id="errors-list">
+        <li class="errors__empty">
+          <div class="empty__icon">✓</div>
+          <p>Ошибок пока нет. Введите текст и нажмите «Проверить».</p>
+        </li>
+      </ul>
+    </aside>
+
+  </main>
+
+  <div class="modal" id="modal-chat" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__box modal__box--chat">
+      <div class="modal__head">
+        <h3>Чат с помощником</h3>
+        <button class="modal__close" data-close>×</button>
+      </div>
+      <div class="chat__log" id="chat-log">
+        <div class="chat__msg chat__msg--bot">
+          Здравствуйте! Я помогу разобраться с ошибками в вашем тексте.
+          Спросите, почему что-то написано неверно, или как переписать фразу.
+        </div>
+      </div>
+      <form class="chat__form" id="chat-form">
+        <input type="text" id="chat-input" class="chat__input"
+               placeholder="Например: почему «в Москва» — ошибка?">
+        <button type="submit" class="btn btn--primary">Отправить</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-help" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__box">
+      <div class="modal__head">
+        <h3>Как работает проверка</h3>
+        <button class="modal__close" data-close>×</button>
+      </div>
+      <div class="modal__body">
+        <p>Система обнаруживает семь типов ошибок, характерных для иноязычных авторов:</p>
+        <ul class="help__list">
+          <li><b>Падежное управление</b> — «ехал в Москва» → «ехал в Москву»</li>
+          <li><b>Согласование</b> — «новый школу» → «новую школу»</li>
+          <li><b>Вид глагола</b> — «читал весь день» → «прочитал за день»</li>
+          <li><b>Порядок слов</b> — «очень мне нравится» → «мне очень нравится»</li>
+          <li><b>Лексическая сочетаемость</b> — «сделать решение» → «принять решение»</li>
+          <li><b>Предлоги</b> — «говорю на русский язык» → «говорю по-русски»</li>
+          <li><b>Пунктуация</b> — «думаю что» → «думаю, что»</li>
+        </ul>
+        <p class="help__note">Модель работает локально: текст не отправляется на сторонние серверы.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
