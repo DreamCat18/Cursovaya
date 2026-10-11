@@ -13,8 +13,8 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
-from app.services.vllm_client import (
-    correct_text_with_vllm,
+from app.services.ollama import (
+    correct_text,
     explain_error,
     answer_question,
 )
@@ -104,7 +104,7 @@ async def check_text(payload: CheckRequest, request: Request):
         rule_errors = detect_errors_by_rules(text)
 
         # 2. Модель: переписанный вариант текста через vLLM
-        corrected = correct_text_with_vllm(text)
+        corrected = correct_text(text)
 
         # 3. Сопоставляем исходный и исправленный текст → список ошибок
         model_errors = extract_errors(text, corrected) if corrected else []
