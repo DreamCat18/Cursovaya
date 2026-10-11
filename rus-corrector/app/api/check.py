@@ -103,7 +103,7 @@ async def check_text(payload: CheckRequest, request: Request):
         # 1. Правила для типовых ошибок (быстро, без модели)
         rule_errors = detect_errors_by_rules(text)
 
-        # 2. Модель: переписанный вариант текста через vLLM
+        # 2. Модель: переписанный вариант текста через LLM
         corrected = correct_text(text)
 
         # 3. Сопоставляем исходный и исправленный текст → список ошибок
