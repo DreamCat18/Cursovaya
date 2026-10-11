@@ -1,11 +1,9 @@
-/* ===== Состояние ===== */
 const state = {
   errors: [],
   filter: 'all',
   checking: false
 };
 
-/* ===== Элементы ===== */
 const editor      = document.getElementById('editor');
 const charCount   = document.getElementById('char-count');
 const statusText  = document.getElementById('status-text');
@@ -15,7 +13,6 @@ const btnCopy     = document.getElementById('btn-copy');
 const errorsList  = document.getElementById('errors-list');
 const errorsCount = document.getElementById('errors-count');
 
-/* ===== Утилиты ===== */
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
@@ -35,20 +32,17 @@ const updateCharCount = () => {
   charCount.textContent = `${getPlainText().length} знаков`;
 };
 
-/* ===== Ввод текста ===== */
 editor.addEventListener('input', () => {
   updateCharCount();
   btnCopy.disabled = !getPlainText().trim();
 });
 
-/* ===== Вставка только текста ===== */
 editor.addEventListener('paste', (e) => {
   e.preventDefault();
   const text = (e.clipboardData || window.clipboardData).getData('text/plain');
   document.execCommand('insertText', false, text);
 });
 
-/* ===== Очистка ===== */
 btnClear.addEventListener('click', () => {
   editor.innerHTML = '';
   state.errors = [];
@@ -58,7 +52,6 @@ btnClear.addEventListener('click', () => {
   setStatus('Готово к проверке');
 });
 
-/* ===== Копирование ===== */
 btnCopy.addEventListener('click', async () => {
   const clone = editor.cloneNode(true);
   clone.querySelectorAll('.err').forEach(span => {
@@ -77,7 +70,6 @@ btnCopy.addEventListener('click', async () => {
   }
 });
 
-/* ===== Проверка ===== */
 btnCheck.addEventListener('click', async () => {
   const text = getPlainText().trim();
   if (!text) {
@@ -119,7 +111,6 @@ btnCheck.addEventListener('click', async () => {
   }
 });
 
-/* ===== Подсветка ошибок ===== */
 function highlightErrors(errors) {
   editor.querySelectorAll('.err').forEach(span => {
     span.replaceWith(document.createTextNode(span.textContent));
@@ -172,7 +163,6 @@ function highlightItemInList(idx) {
   });
 }
 
-/* ===== Фильтр ===== */
 document.querySelectorAll('.chip').forEach(chip => {
   chip.addEventListener('click', () => {
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip--active'));
@@ -182,7 +172,6 @@ document.querySelectorAll('.chip').forEach(chip => {
   });
 });
 
-/* ===== Список ошибок ===== */
 function renderErrors() {
   const filtered = state.filter === 'all'
     ? state.errors
@@ -238,7 +227,6 @@ function labelFor(type) {
   return map[type] || type;
 }
 
-/* ===== Вкладки и модалки ===== */
 document.querySelectorAll('.nav__btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.tab;
@@ -274,7 +262,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* ===== Чат ===== */
 const chatForm  = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatLog   = document.getElementById('chat-log');
@@ -311,6 +298,5 @@ function appendMessage(role, text) {
   return div;
 }
 
-/* ===== Инициализация ===== */
 updateCharCount();
 btnCopy.disabled = true;
