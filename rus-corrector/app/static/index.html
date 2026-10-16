@@ -30,7 +30,6 @@
         <h2 class="panel__title">Ваш текст</h2>
         <div class="panel__actions">
           <button class="btn btn--ghost" id="btn-clear">Очистить</button>
-          <button class="btn btn--ghost" id="btn-copy" disabled>Скопировать</button>
           <button class="btn btn--primary" id="btn-check">Проверить</button>
         </div>
       </div>
@@ -52,24 +51,44 @@
 
     <aside class="panel panel--errors" id="panel-errors">
       <div class="panel__head">
-        <h2 class="panel__title">Найденные ошибки</h2>
+        <h2 class="panel__title">Результат проверки</h2>
         <span class="badge" id="errors-count">0</span>
       </div>
 
-      <div class="errors__filters">
-        <button class="chip chip--active" data-filter="all">Все</button>
-        <button class="chip" data-filter="grammar">Грамматика</button>
-        <button class="chip" data-filter="syntax">Синтаксис</button>
-        <button class="chip" data-filter="lexis">Лексика</button>
-        <button class="chip" data-filter="punct">Пунктуация</button>
+      <div class="result-tabs">
+        <button class="result-tab result-tab--active" data-result="errors">Ошибки</button>
+        <button class="result-tab" data-result="corrected">Исправленный текст</button>
       </div>
 
-      <ul class="errors__list" id="errors-list">
-        <li class="errors__empty">
-          <div class="empty__icon">✓</div>
-          <p>Ошибок пока нет. Введите текст и нажмите «Проверить».</p>
-        </li>
-      </ul>
+      <div class="result-pane" id="pane-errors">
+        <div class="errors__filters">
+          <button class="chip chip--active" data-filter="all">Все</button>
+          <button class="chip" data-filter="grammar">Грамматика</button>
+          <button class="chip" data-filter="syntax">Синтаксис</button>
+          <button class="chip" data-filter="lexis">Лексика</button>
+          <button class="chip" data-filter="punct">Пунктуация</button>
+        </div>
+
+        <ul class="errors__list" id="errors-list">
+          <li class="errors__empty">
+            <div class="empty__icon">✓</div>
+            <p>Ошибок пока нет. Введите текст и нажмите «Проверить».</p>
+          </li>
+        </ul>
+      </div>
+
+      <div class="result-pane" id="pane-corrected" hidden>
+        <div class="corrected__wrap">
+          <div class="corrected__text" id="corrected-text">
+            Исправленный текст появится здесь после проверки.
+          </div>
+        </div>
+        <div class="corrected__actions">
+          <button class="btn btn--primary" id="btn-copy-corrected" disabled>
+            Скопировать исправленный текст
+          </button>
+        </div>
+      </div>
     </aside>
 
   </main>

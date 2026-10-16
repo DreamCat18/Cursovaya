@@ -1,19 +1,21 @@
 /* ===== Состояние ===== */
 const state = {
   errors: [],
+  correctedText: '',
   filter: 'all',
   checking: false
 };
 
 /* ===== Элементы ===== */
-const editor      = document.getElementById('editor');
-const charCount   = document.getElementById('char-count');
-const statusText  = document.getElementById('status-text');
-const btnCheck    = document.getElementById('btn-check');
-const btnClear    = document.getElementById('btn-clear');
-const btnCopy     = document.getElementById('btn-copy');
-const errorsList  = document.getElementById('errors-list');
-const errorsCount = document.getElementById('errors-count');
+const editor           = document.getElementById('editor');
+const charCount        = document.getElementById('char-count');
+const statusText       = document.getElementById('status-text');
+const btnCheck         = document.getElementById('btn-check');
+const btnClear         = document.getElementById('btn-clear');
+const btnCopyCorrected = document.getElementById('btn-copy-corrected');
+const correctedText    = document.getElementById('corrected-text');
+const errorsList       = document.getElementById('errors-list');
+const errorsCount      = document.getElementById('errors-count');
 
 /* ===== Утилиты ===== */
 const escapeHtml = (s) => String(s)
@@ -36,7 +38,6 @@ const updateCharCount = () => {
 /* ===== Ввод текста ===== */
 editor.addEventListener('input', () => {
   updateCharCount();
-  btnCopy.disabled = !getPlainText().trim();
 });
 
 /* ===== Вставка только текста ===== */
@@ -50,41 +51,12 @@ editor.addEventListener('paste', (e) => {
 btnClear.addEventListener('click', () => {
   editor.innerHTML = '';
   state.errors = [];
+  state.correctedText = '';
   renderErrors();
+  renderCorrected();
   updateCharCount();
-  btnCopy.disabled = true;
   setStatus('Готово к проверке');
-});
-
-/* ===== Копирование исправленного текста ===== */
-btnCopy.addEventListener('click', async () => {
-  // Собираем текст из DOM, убирая служебные span
-  const clone = editor.cloneNode(true);
-
-  clone.querySelectorAll('.err').forEach(span => {
-    const fix = span.dataset.suggestion;
-    const original = span.textContent;
-
-    // Если suggestion пустой или равен "(удалить)" — удаляем фрагмент
-    if (fix === '' || fix === undefined || fix === '(удалить)') {
-      span.remove();
-      return;
-    }
-
-    // Иначе заменяем на исправление
-    span.replaceWith(document.createTextNode(fix));
-  });
-
-  const cleanText = clone.innerText.replace(/\u00a0/g, ' ');
-
-  try {
-    await navigator.clipboard.writeText(cleanText);
-    setStatus('Исправленный текст скопирован');
-    btnCopy.textContent = 'Скопировано';
-    setTimeout(() => { btnCopy.textContent = 'Скопировать'; }, 1500);
-  } catch {
-    setStatus('Не удалось скопировать. Выделите текст вручную.', true);
-  }
+  switchResultTab('errors');
 });
 
 /* ===== Проверка текста ===== */
@@ -110,16 +82,20 @@ btnCheck.addEventListener('click', async () => {
 
     const data = await response.json();
     state.errors = data.errors || [];
+    state.correctedText = buildCorrectedText(text, state.errors);
 
     highlightErrors(state.errors);
     renderErrors();
+    renderCorrected();
 
     setStatus(
       state.errors.length
         ? `Найдено ошибок: ${state.errors.length}`
         : 'Ошибок не найдено — текст выглядит корректно'
     );
-    btnCopy.disabled = false;
+
+    // Автоматически показываем вкладку с исправленным текстом
+    switchResultTab('corrected');
   } catch (err) {
     setStatus('Не удалось проверить текст. Попробуйте ещё раз.', true);
     console.error(err);
@@ -134,14 +110,16 @@ function highlightErrors(errors) {
   // 1. Получаем чистый текст без предыдущих подсветок
   const plain = editor.innerText.replace(/\u00a0/g, ' ');
 
-  // 2. Разбиваем текст на токены (слова, знаки препинания, пробелы)
+  // 2. Разбиваем текст на токены
   const tokens = plain.match(/\w+|[^\w\s]|\s+/g) || [];
 
   // 3. Индексируем ошибки по фрагментам
   const errByFragment = new Map();
   errors.forEach((err, idx) => {
     const key = (err.fragment || '').toLowerCase().trim();
-    if (key) errByFragment.set(key, { ...err, idx });
+    if (key && !errByFragment.has(key)) {
+      errByFragment.set(key, { ...err, idx });
+    }
   });
 
   // 4. Собираем HTML, оборачивая подходящие токены в span
@@ -164,18 +142,19 @@ function highlightErrors(errors) {
 
   editor.innerHTML = html;
 
-  // 5. Навешиваем обработчики на подсвеченные фрагменты
+  // 5. Обработчики кликов
   editor.querySelectorAll('.err').forEach(span => {
     span.addEventListener('click', (e) => {
       e.preventDefault();
       const idx = Number(span.dataset.idx);
+      switchResultTab('errors');
       highlightItemInList(idx);
       scrollToErrorInList(idx);
     });
   });
 }
 
-/* ===== Синхронизация: клик по ошибке в списке ===== */
+/* ===== Синхронизация ===== */
 function highlightItemInList(idx) {
   document.querySelectorAll('.error-item').forEach(item => {
     item.classList.toggle('error-item--active', Number(item.dataset.idx) === idx);
@@ -190,6 +169,95 @@ function scrollToErrorInList(idx) {
   if (item) {
     item.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+}
+
+function scrollToErrorInEditor(idx) {
+  const span = editor.querySelector(`.err[data-idx="${idx}"]`);
+  if (span) span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ===== Вкладки результата ===== */
+document.querySelectorAll('.result-tab').forEach(tab => {
+  tab.addEventListener('click', () => switchResultTab(tab.dataset.result));
+});
+
+function switchResultTab(name) {
+  document.querySelectorAll('.result-tab').forEach(t =>
+    t.classList.toggle('result-tab--active', t.dataset.result === name)
+  );
+  document.getElementById('pane-errors').hidden = name !== 'errors';
+  document.getElementById('pane-corrected').hidden = name !== 'corrected';
+}
+
+/* ===== Отрисовка исправленного текста ===== */
+function renderCorrected() {
+  const text = state.correctedText || '';
+  if (!text) {
+    correctedText.textContent = 'Исправленный текст появится здесь после проверки.';
+    btnCopyCorrected.disabled = true;
+    return;
+  }
+  correctedText.textContent = text;
+  btnCopyCorrected.disabled = false;
+}
+
+/* ===== Копирование исправленного текста ===== */
+btnCopyCorrected.addEventListener('click', async () => {
+  const text = state.correctedText;
+  if (!text) return;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus('Исправленный текст скопирован');
+    btnCopyCorrected.textContent = 'Скопировано';
+    setTimeout(() => {
+      btnCopyCorrected.textContent = 'Скопировать исправленный текст';
+    }, 1500);
+  } catch {
+    setStatus('Не удалось скопировать. Выделите текст вручную.', true);
+  }
+});
+
+/* ===== Сборка исправленного текста ===== */
+function buildCorrectedText(original, errors) {
+  if (!errors.length) return original;
+
+  const sorted = [...errors]
+    .filter(e => e.fragment)
+    .sort((a, b) => b.fragment.length - a.fragment.length);
+
+  let result = original;
+  const usedRanges = [];
+
+  sorted.forEach(err => {
+    const fragment = err.fragment;
+    const suggestion = err.suggestion || '';
+
+    let pos = 0;
+    while (pos < result.length) {
+      const found = result.indexOf(fragment, pos);
+      if (found === -1) break;
+
+      const overlaps = usedRanges.some(
+        r => !(found + fragment.length <= r.start || found >= r.end)
+      );
+
+      if (!overlaps) {
+        result =
+          result.slice(0, found) +
+          suggestion +
+          result.slice(found + fragment.length);
+        usedRanges.push({
+          start: found,
+          end: found + suggestion.length
+        });
+        break;
+      }
+      pos = found + 1;
+    }
+  });
+
+  return result;
 }
 
 /* ===== Фильтр ===== */
@@ -251,11 +319,6 @@ function renderErrors() {
   });
 }
 
-function scrollToErrorInEditor(idx) {
-  const span = editor.querySelector(`.err[data-idx="${idx}"]`);
-  if (span) span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
 function labelFor(type) {
   const map = {
     grammar: 'Грамматика',
@@ -266,7 +329,7 @@ function labelFor(type) {
   return map[type] || type;
 }
 
-/* ===== Вкладки и модальные окна ===== */
+/* ===== Вкладки шапки и модальные окна ===== */
 document.querySelectorAll('.nav__btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.tab;
@@ -341,4 +404,4 @@ function appendMessage(role, text) {
 
 /* ===== Инициализация ===== */
 updateCharCount();
-btnCopy.disabled = true;
+renderCorrected();

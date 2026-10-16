@@ -1,3 +1,4 @@
+/* ===== Переменные ===== */
 :root {
   --blue-50:  #f0f6ff;
   --blue-100: #dbeafe;
@@ -115,6 +116,7 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: var(--shadow-sm);
 }
 
+/* ===== Макет ===== */
 .layout {
   max-width: 1280px;
   margin: 0 auto;
@@ -152,6 +154,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .panel__actions { display: flex; gap: 8px; }
 
+/* ===== Кнопки ===== */
 .btn {
   border: none;
   border-radius: var(--radius-sm);
@@ -188,6 +191,7 @@ button { font-family: inherit; cursor: pointer; }
   cursor: not-allowed;
 }
 
+/* ===== Редактор ===== */
 .editor__wrap {
   padding: 16px 20px;
   flex: 1;
@@ -226,6 +230,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .status { color: var(--blue-600); font-weight: 500; }
 
+/* ===== Подсветка ошибок ===== */
 .err {
   border-radius: 3px;
   padding: 1px 2px;
@@ -259,7 +264,8 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
 }
 
-.panel--errors { max-height: 640px; }
+/* ===== Панель результата ===== */
+.panel--errors { max-height: 680px; }
 
 .badge {
   background: var(--blue-100);
@@ -270,6 +276,43 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 999px;
 }
 
+/* ===== Вкладки результата ===== */
+.result-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid var(--blue-100);
+}
+
+.result-tab {
+  border: none;
+  background: transparent;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-600);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s ease;
+}
+
+.result-tab:hover { color: var(--blue-700); }
+
+.result-tab--active {
+  color: var(--blue-700);
+  border-bottom-color: var(--blue-600);
+}
+
+.result-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.result-pane[hidden] { display: none; }
+
+/* ===== Список ошибок ===== */
 .errors__filters {
   display: flex;
   flex-wrap: wrap;
@@ -302,6 +345,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 8px;
   overflow-y: auto;
   flex: 1;
+  max-height: 520px;
 }
 
 .errors__empty {
@@ -380,6 +424,38 @@ button { font-family: inherit; cursor: pointer; }
   line-height: 1.5;
 }
 
+/* ===== Исправленный текст ===== */
+.corrected__wrap {
+  padding: 16px 20px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 320px;
+  max-height: 520px;
+}
+
+.corrected__text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--gray-800);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  padding: 14px 16px;
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  border-radius: var(--radius-md);
+  min-height: 260px;
+}
+
+.corrected__actions {
+  padding: 12px 16px;
+  border-top: 1px solid var(--blue-100);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.corrected__actions .btn { width: 100%; }
+
+/* ===== Модальные окна ===== */
 .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
 .modal[hidden] { display: none; }
 
@@ -437,6 +513,7 @@ button { font-family: inherit; cursor: pointer; }
 .help__list li { margin-bottom: 8px; font-size: 14px; }
 .help__note { font-size: 13px; color: var(--gray-600); margin-top: 16px; }
 
+/* ===== Чат ===== */
 .chat__log {
   padding: 16px 20px;
   overflow-y: auto;
@@ -490,9 +567,12 @@ button { font-family: inherit; cursor: pointer; }
 
 .chat__input:focus { border-color: var(--blue-500); }
 
+/* ===== Адаптив ===== */
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   .panel--errors { max-height: none; }
+  .errors__list { max-height: none; }
+  .corrected__wrap { max-height: none; }
 }
 
 @media (max-width: 600px) {
@@ -502,4 +582,5 @@ button { font-family: inherit; cursor: pointer; }
   .btn { padding: 7px 12px; font-size: 13px; }
   .editor__wrap { min-height: 280px; padding: 12px 16px; }
   .editor { min-height: 260px; font-size: 15px; }
+  .result-tab { padding: 8px 10px; font-size: 13px; }
 }
