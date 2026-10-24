@@ -89,6 +89,13 @@ def build_final_text(base_text: str, errors: List[Dict]) -> str:
         if not fragment:
             continue
 
+        # ЗАЩИТА 1: Если suggestion пустой, но fragment — это слово (а не знак препинания),
+        # значит модель ошибочно пытается его удалить. Пропускаем такое удаление.
+        if not suggestion:
+            # Разрешаем удаление только для знаков препинания или пробелов
+            if not re.fullmatch(r"[.,;:!?—–\-…\s]+", fragment):
+                continue
+
         # Ищем фрагмент в тексте
         pos = base_text.find(fragment)
         if pos == -1:
