@@ -1,7 +1,7 @@
 """
 REST API для проверки текста и чата.
 Эндпоинты:
-  POST /api/check  — обнаружить ошибки в тексте
+  POST /api/check  — обнаружить ошибки в тексте и вернуть исправленный вариант
   POST /api/chat   — задать вопрос языковой модели
 """
 
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 # Импорты сервисов
 from app.services.spell_corrector import correct_spelling
 from app.services.ollama import analyze_text, explain_error, answer_question
-from app.services.parser import detect_errors_by_rules, merge_errors
+from app.services.parser import detect_errors_by_rules, merge_errors, build_final_text
 
 router = APIRouter()
 log = logging.getLogger("rus_corrector")
@@ -72,6 +72,7 @@ class ErrorItem(BaseModel):
 
 class CheckResponse(BaseModel):
     errors: List[ErrorItem]
+    corrected_text: str
 
 
 class ChatRequest(BaseModel):
@@ -107,7 +108,7 @@ async def check_text(payload: CheckRequest, request: Request):
                 sugg = spell_corrected[j1:j2].strip()
                 if frag or sugg:
                     spell_errors.append({
-                        "type": "grammar",  # TODO: добавить тип "spelling"
+                        "type": "grammar",
                         "fragment": frag,
                         "suggestion": sugg,
                         "reason": "Орфографическая ошибка или опечатка.",
@@ -120,7 +121,6 @@ async def check_text(payload: CheckRequest, request: Request):
         model_errors = analyze_text(spell_corrected)
 
         # 5. Объединяем и убираем дубликаты
-        # (передаём сначала правила, потом модель, чтобы правила имели приоритет)
         errors = merge_errors(rule_errors + spell_errors, model_errors)
 
         # 6. Для ошибок без объяснения просим модель
@@ -132,12 +132,15 @@ async def check_text(payload: CheckRequest, request: Request):
                     context=spell_corrected,
                 )
 
+        # 7. Собираем финальный исправленный текст на сервере
+        final_text = build_final_text(spell_corrected, errors)
+
         log.info(
             "Проверка | орфография: %d, правила: %d, модель: %d, всего: %d",
             len(spell_errors), len(rule_errors), len(model_errors), len(errors)
         )
 
-        return CheckResponse(errors=errors)
+        return CheckResponse(errors=errors, corrected_text=final_text)
 
     except HTTPException:
         raise

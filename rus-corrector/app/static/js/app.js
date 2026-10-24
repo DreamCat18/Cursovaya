@@ -82,7 +82,7 @@ btnCheck.addEventListener('click', async () => {
 
     const data = await response.json();
     state.errors = data.errors || [];
-    state.correctedText = buildCorrectedText(text, state.errors);
+    state.correctedText = data.corrected_text || text;  // ← берём с сервера
 
     highlightErrors(state.errors);
     renderErrors();
@@ -107,13 +107,9 @@ btnCheck.addEventListener('click', async () => {
 
 /* ===== Подсветка ошибок в тексте ===== */
 function highlightErrors(errors) {
-  // 1. Получаем чистый текст без предыдущих подсветок
   const plain = editor.innerText.replace(/\u00a0/g, ' ');
-
-  // 2. Разбиваем текст на токены
   const tokens = plain.match(/\w+|[^\w\s]|\s+/g) || [];
 
-  // 3. Индексируем ошибки по фрагментам
   const errByFragment = new Map();
   errors.forEach((err, idx) => {
     const key = (err.fragment || '').toLowerCase().trim();
@@ -122,7 +118,6 @@ function highlightErrors(errors) {
     }
   });
 
-  // 4. Собираем HTML, оборачивая подходящие токены в span
   let html = '';
   const usedIdx = new Set();
 
@@ -142,7 +137,6 @@ function highlightErrors(errors) {
 
   editor.innerHTML = html;
 
-  // 5. Обработчики кликов
   editor.querySelectorAll('.err').forEach(span => {
     span.addEventListener('click', (e) => {
       e.preventDefault();
@@ -217,48 +211,6 @@ btnCopyCorrected.addEventListener('click', async () => {
     setStatus('Не удалось скопировать. Выделите текст вручную.', true);
   }
 });
-
-/* ===== Сборка исправленного текста ===== */
-function buildCorrectedText(original, errors) {
-  if (!errors.length) return original;
-
-  const sorted = [...errors]
-    .filter(e => e.fragment)
-    .sort((a, b) => b.fragment.length - a.fragment.length);
-
-  let result = original;
-  const usedRanges = [];
-
-  sorted.forEach(err => {
-    const fragment = err.fragment;
-    const suggestion = err.suggestion || '';
-
-    let pos = 0;
-    while (pos < result.length) {
-      const found = result.indexOf(fragment, pos);
-      if (found === -1) break;
-
-      const overlaps = usedRanges.some(
-        r => !(found + fragment.length <= r.start || found >= r.end)
-      );
-
-      if (!overlaps) {
-        result =
-          result.slice(0, found) +
-          suggestion +
-          result.slice(found + fragment.length);
-        usedRanges.push({
-          start: found,
-          end: found + suggestion.length
-        });
-        break;
-      }
-      pos = found + 1;
-    }
-  });
-
-  return result;
-}
 
 /* ===== Фильтр ===== */
 document.querySelectorAll('.chip').forEach(chip => {
