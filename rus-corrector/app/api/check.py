@@ -1,8 +1,5 @@
 """
 REST API для проверки текста и чата.
-Эндпоинты:
-  POST /api/check  — обнаружить ошибки в тексте и вернуть исправленный вариант
-  POST /api/chat   — задать вопрос языковой модели
 """
 
 import difflib
@@ -14,9 +11,8 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
-# Импорты сервисов
 from app.services.spell_corrector import correct_spelling
-from app.services.ollama import analyze_text, explain_error, answer_question
+from app.services.ollama import explain_error, answer_question
 from app.services.parser import detect_errors_by_rules, merge_errors, build_final_text
 
 router = APIRouter()
@@ -30,7 +26,6 @@ _rate_log: dict[str, list[float]] = defaultdict(list)
 
 
 def _check_rate_limit(ip: str) -> None:
-    """Проверяет, не превышен ли лимит запросов с одного адреса."""
     now = time.time()
     timestamps = [t for t in _rate_log[ip] if now - t < WINDOW_SECONDS]
     if len(timestamps) >= RATE_LIMIT_PER_MINUTE:
@@ -40,7 +35,6 @@ def _check_rate_limit(ip: str) -> None:
 
 
 def _client_ip(request: Request) -> str:
-    """Возвращает реальный IP посетителя с учётом туннеля."""
     forwarded = (
         request.headers.get("cf-connecting-ip")
         or request.headers.get("x-forwarded-for")
@@ -87,17 +81,18 @@ class ChatResponse(BaseModel):
 # ===== Эндпоинты =====
 @router.post("/check", response_model=CheckResponse)
 async def check_text(payload: CheckRequest, request: Request):
-    """Проверяет текст: SAGE исправляет орфографию, LLM — грамматику."""
+    """Проверяет текст: SAGE исправляет орфографию, правила — типовые ошибки.
+    LLM используется только для объяснений, чтобы не ломать текст."""
     ip = _client_ip(request)
     _check_rate_limit(ip)
 
     text = payload.text
 
     try:
-        # 1. SAGE исправляет орфографию и опечатки
+        # 1. SAGE исправляет орфографию
         spell_corrected = correct_spelling(text)
 
-        # 2. Извлекаем орфографические правки через difflib
+        # 2. Извлекаем орфографические правки
         spell_errors = []
         if spell_corrected != text:
             matcher = difflib.SequenceMatcher(None, text, spell_corrected)
@@ -106,6 +101,9 @@ async def check_text(payload: CheckRequest, request: Request):
                     continue
                 frag = text[i1:i2].strip()
                 sugg = spell_corrected[j1:j2].strip()
+                # Пропускаем удаление слов (оставляем только знаки препинания)
+                if frag and not sugg and not all(c in ".,;:!?—–-… \n" for c in frag):
+                    continue
                 if frag or sugg:
                     spell_errors.append({
                         "type": "grammar",
@@ -114,16 +112,13 @@ async def check_text(payload: CheckRequest, request: Request):
                         "reason": "Орфографическая ошибка или опечатка.",
                     })
 
-        # 3. Правила для типовых случаев (подстраховка)
+        # 3. Правила для типовых случаев
         rule_errors = detect_errors_by_rules(spell_corrected)
 
-        # 4. LLM анализирует уже исправленный текст на грамматику
-        model_errors = analyze_text(spell_corrected)
+        # 4. Объединяем только правила и орфографию (без LLM)
+        errors = merge_errors(rule_errors, spell_errors)
 
-        # 5. Объединяем и убираем дубликаты
-        errors = merge_errors(rule_errors + spell_errors, model_errors)
-
-        # 6. Для ошибок без объяснения просим модель
+        # 5. Просим LLM дать объяснения для найденных ошибок
         for err in errors[:5]:
             if not err.get("reason"):
                 err["reason"] = explain_error(
@@ -132,15 +127,19 @@ async def check_text(payload: CheckRequest, request: Request):
                     context=spell_corrected,
                 )
 
-        # 7. Собираем финальный исправленный текст на сервере
+        # 6. Собираем финальный текст
         final_text = build_final_text(spell_corrected, errors)
 
-        log.info(
-            "Проверка | орфография: %d, правила: %d, модель: %d, всего: %d",
-            len(spell_errors), len(rule_errors), len(model_errors), len(errors)
-        )
+        # 7. ВАЖНО: Оставляем в списке только те ошибки, которые реально были применены
+        applied_errors = []
+        for err in errors:
+            if err["fragment"] and err["fragment"] in spell_corrected:
+                applied_errors.append(err)
 
-        return CheckResponse(errors=errors, corrected_text=final_text)
+        log.info("Проверка | орфография: %d, правила: %d, применено: %d",
+                 len(spell_errors), len(rule_errors), len(applied_errors))
+
+        return CheckResponse(errors=applied_errors, corrected_text=final_text)
 
     except HTTPException:
         raise
@@ -151,7 +150,6 @@ async def check_text(payload: CheckRequest, request: Request):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, request: Request):
-    """Отвечает на вопрос пользователя по тексту."""
     ip = _client_ip(request)
     _check_rate_limit(ip)
 

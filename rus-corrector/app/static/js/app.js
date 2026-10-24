@@ -40,7 +40,6 @@ editor.addEventListener('input', () => {
   updateCharCount();
 });
 
-/* ===== Вставка только текста ===== */
 editor.addEventListener('paste', (e) => {
   e.preventDefault();
   const text = (e.clipboardData || window.clipboardData).getData('text/plain');
@@ -82,7 +81,7 @@ btnCheck.addEventListener('click', async () => {
 
     const data = await response.json();
     state.errors = data.errors || [];
-    state.correctedText = data.corrected_text || text;  // ← берём с сервера
+    state.correctedText = data.corrected_text || text;
 
     highlightErrors(state.errors);
     renderErrors();
@@ -94,7 +93,6 @@ btnCheck.addEventListener('click', async () => {
         : 'Ошибок не найдено — текст выглядит корректно'
     );
 
-    // Автоматически показываем вкладку с исправленным текстом
     switchResultTab('corrected');
   } catch (err) {
     setStatus('Не удалось проверить текст. Попробуйте ещё раз.', true);
@@ -107,9 +105,11 @@ btnCheck.addEventListener('click', async () => {
 
 /* ===== Подсветка ошибок в тексте ===== */
 function highlightErrors(errors) {
+  // 1. Получаем чистый текст
   const plain = editor.innerText.replace(/\u00a0/g, ' ');
   const tokens = plain.match(/\w+|[^\w\s]|\s+/g) || [];
 
+  // 2. Индексируем ТОЛЬКО те ошибки, которые реально пришли с сервера
   const errByFragment = new Map();
   errors.forEach((err, idx) => {
     const key = (err.fragment || '').toLowerCase().trim();
@@ -121,6 +121,7 @@ function highlightErrors(errors) {
   let html = '';
   const usedIdx = new Set();
 
+  // 3. Проходим по токенам и оборачиваем только те, что есть в errByFragment
   tokens.forEach((token) => {
     const key = token.toLowerCase().trim();
     const err = errByFragment.get(key);
@@ -137,6 +138,7 @@ function highlightErrors(errors) {
 
   editor.innerHTML = html;
 
+  // 4. Навешиваем обработчики
   editor.querySelectorAll('.err').forEach(span => {
     span.addEventListener('click', (e) => {
       e.preventDefault();
@@ -160,9 +162,7 @@ function highlightItemInList(idx) {
 
 function scrollToErrorInList(idx) {
   const item = document.querySelector(`.error-item[data-idx="${idx}"]`);
-  if (item) {
-    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+  if (item) item.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function scrollToErrorInEditor(idx) {
