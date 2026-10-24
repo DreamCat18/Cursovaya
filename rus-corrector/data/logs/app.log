@@ -15,3 +15,8 @@
 2026-10-12 22:04:01,094 | INFO | запрос | POST /api/chat | 200 | 39014 мс
 2026-10-12 22:05:01,544 | INFO | запрос | POST /api/chat | 200 | 31496 мс
 2026-10-16 22:10:11,527 | INFO | запрос | POST /api/check | 200 | 121774 мс
+2026-10-24 16:47:40,321 | INFO | запрос | POST /api/check | 200 | 106423 мс
+2026-10-24 16:52:10,668 | ERROR | Ollama недоступна | HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=120)
+2026-10-24 16:52:10,669 | INFO | запрос | POST /api/check | 200 | 122048 мс
+2026-10-24 17:47:23,134 | ERROR | Ollama недоступна | HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=120)
+2026-10-24 17:47:23,136 | INFO | запрос | POST /api/check | 200 | 122087 мс
