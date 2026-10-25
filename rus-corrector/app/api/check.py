@@ -13,6 +13,9 @@ from app.services.parser import detect_errors_by_rules, merge_errors
 router = APIRouter()
 log = logging.getLogger("rus_corrector")
 
+# Список слов, которые нельзя менять (IT-сленг)
+FORBIDDEN_CHANGES = {"созвон", "позвон", "звонок", "код", "кодить", "баг", "фикс"}
+
 class CheckRequest(BaseModel):
     text: str = Field(...)
 
@@ -37,15 +40,14 @@ class ChatResponse(BaseModel):
 async def check_text(payload: CheckRequest):
     text = payload.text.strip()
     
-    # 1. SAGE (орфография)
+    # 1. SAGE
     spell_corrected = correct_spelling(text)
     
-    # 2. LLM (грамматика)
+    # 2. LLM
     llm_corrected = correct_text(spell_corrected)
     
-    # Мягкий фильтр от "рассуждений" модели
-    if not llm_corrected or "Примечание:" in llm_corrected or "Ошибка в" in llm_corrected or "В тексте есть" in llm_corrected:
-        log.warning("Модель выдала рассуждения вместо текста, используем оригинал")
+    # Проверка на рассуждения
+    if not llm_corrected or "Примечание:" in llm_corrected or "В тексте есть" in llm_corrected:
         final_text = spell_corrected
     else:
         final_text = llm_corrected
@@ -71,20 +73,27 @@ async def check_text(payload: CheckRequest):
             if frag == sugg: continue
             if "(" in frag or ")" in frag: continue
 
-            # ЖЕСТКИЙ ФИЛЬТР 1: Запрет на удаление (если модель удалила слово, возвращаем его)
+            # ЗАЩИТА ОТ УДАЛЕНИЯ
             if tag == "delete":
                 continue
 
-            # ЖЕСТКИЙ ФИЛЬТР 2: Запрет на замену слов с разным корнем (икра -> яйцо)
-            if len(frag.split()) == 1 and len(sugg.split()) == 1:
-                if frag[:2].lower() != sugg[:2].lower():
-                    log.warning("Отброшена замена с разным корнем: %s -> %s", frag, sugg)
-                    continue
+            # ЗАЩИТА IT-СЛЕНГА
+            if any(word in frag.lower() for word in FORBIDDEN_CHANGES):
+                log.info("Защита от замены IT-сленга: %s -> %s", frag, sugg)
+                continue
 
-            # Определение типа
+            # УМНЫЙ ФИЛЬТР ЗАМЕН
+            if len(frag.split()) == 1 and len(sugg.split()) == 1:
+                # Если слова полностью разные и не являются формой одного слова
+                if frag[:2].lower() != sugg[:2].lower():
+                    # Проверяем, не является ли это падежным изменением (например, "моя" -> "мою")
+                    # В таких случаях первые буквы часто совпадают, но не всегда (например, "я" -> "меня")
+                    if not (len(frag) <= 3 and len(sugg) <= 4): 
+                        log.warning("Отброшена подозрительная замена: %s -> %s", frag, sugg)
+                        continue
+
             err_type = "grammar"
             if len(frag.split()) != len(sugg.split()): err_type = "syntax"
-            if len(frag) == 1 or len(sugg) == 1: err_type = "punct" # Если меняется 1 символ - пунктуация
             
             errors.append({
                 "type": err_type,
