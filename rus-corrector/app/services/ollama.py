@@ -9,7 +9,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 GENERATE_URL = f"{OLLAMA_URL}/api/generate"
 
-
 def _generate(prompt: str, temperature: float = 0.1) -> str:
     try:
         response = requests.post(
@@ -23,9 +22,7 @@ def _generate(prompt: str, temperature: float = 0.1) -> str:
         log.error("Ollama недоступна | %s", exc)
         return ""
 
-
 def check_ollama_health() -> bool:
-    """Проверяет, запущена ли Ollama и загружена ли модель."""
     try:
         r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5)
         r.raise_for_status()
@@ -34,24 +31,25 @@ def check_ollama_health() -> bool:
     except requests.RequestException:
         return False
 
-
-CORRECT_PROMPT = """Ты — профессиональный корректор русского языка. Твоя задача — исправить грамматические ошибки в тексте иностранца.
-Обрати особое внимание на:
-1. Согласование в роде (например, "первый проблема" -> "первая проблема", "белый вода" -> "белая вода").
-2. Падежи (например, "в Россия" -> "в России", "в Турция" -> "в Турции").
-3. Предлоги и виды глаголов.
+# СТРОГИЙ ПРОМПТ
+CORRECT_PROMPT = """Ты — профессиональный корректор русского языка. Твоя задача — исправить ТОЛЬКО грубые грамматические ошибки в тексте иностранца.
+Исправляй только:
+1. Согласование в роде (например, "первый проблема" -> "первая проблема").
+2. Падежи после предлогов (например, "в Россия" -> "в России").
+3. Неправильные предлоги.
 
 КРИТИЧЕСКИЕ ПРАВИЛА:
-- Сохрани ВСЕ абзацы и переносы строк. Пустая строка должна остаться пустой.
-- НЕ добавляй никаких скобок, комментариев или пояснений.
-- НЕ удаляй слова. Меняй только окончания или сами слова на правильные.
+- НЕ меняй слова, если они грамматически верны.
+- НЕ меняй смысл слов (например, "икра" — это еда, не меняй на "яйцо").
+- НЕ меняй правильные глаголы (например, "учусь" — это правильно).
+- Сохрани ВСЕ абзацы и переносы строк.
+- НЕ добавляй скобки и комментарии.
 - Верни ТОЛЬКО исправленный текст.
 
 Текст:
 {text}
 
 Исправленный текст:"""
-
 
 def correct_text(text: str) -> str:
     prompt = CORRECT_PROMPT.format(text=text)
@@ -60,23 +58,19 @@ def correct_text(text: str) -> str:
     result = re.sub(r"[\(\)]", "", result)
     return result.strip()
 
-
 EXPLAIN_PROMPT = """Ты — преподаватель РКИ. Кратко объясни причину ошибки (1-2 предложения).
 Фрагмент с ошибкой: {fragment}
 Правильный вариант: {suggestion}
 Объяснение:"""
 
-
 def explain_error(fragment: str, suggestion: str, context: str) -> str:
     prompt = EXPLAIN_PROMPT.format(fragment=fragment, suggestion=suggestion)
     return _generate(prompt, temperature=0.2)
-
 
 CHAT_PROMPT = """Ты — помощник по русской грамматике. Отвечай кратко по тексту.
 Текст: {text}
 Вопрос: {question}
 Ответ:"""
-
 
 def answer_question(question: str, text: str) -> str:
     prompt = CHAT_PROMPT.format(question=question, text=text[:3000] if text else "(пусто)")
