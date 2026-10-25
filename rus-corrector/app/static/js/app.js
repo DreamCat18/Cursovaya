@@ -58,8 +58,12 @@ btnCheck.addEventListener('click', async () => {
     highlightErrors(state.errors);
     renderErrors();
     renderCorrected();
-    setStatus(state.errors.length ? `Найдено ошибок: ${state.errors.length}` : 'Ошибок нет');
-    switchResultTab('corrected');
+    
+    setStatus(state.errors.length ? `Найдено ошибок: ${state.errors.length}` : 'Ошибок не найдено');
+    
+    // Если ошибки есть, показываем вкладку "Ошибки", иначе "Исправленный текст"
+    switchResultTab(state.errors.length > 0 ? 'errors' : 'corrected');
+    
   } catch (err) {
     setStatus('Ошибка проверки', true);
   } finally {
@@ -72,7 +76,6 @@ function highlightErrors(errors) {
   const plain = editor.innerText.replace(/\u00a0/g, ' ');
   if (!errors.length) { editor.textContent = plain; return; }
 
-  // Сортируем по длине фрагмента (сначала длинные)
   const sortedErrors = [...errors].filter(e => e.fragment).sort((a, b) => b.fragment.length - a.fragment.length);
   let html = escapeHtml(plain);
 
@@ -81,11 +84,10 @@ function highlightErrors(errors) {
     const safeSugg = escapeHtml(err.suggestion || '');
     const pos = html.indexOf(safeFrag);
     
-    // Если фрагмент найден и мы не внутри тега span
     if (pos !== -1) {
       const openTagPos = html.lastIndexOf('<span', pos);
       const closeTagPos = html.lastIndexOf('</span>', pos);
-      if (openTagPos > closeTagPos) return; // Уже внутри, пропускаем
+      if (openTagPos > closeTagPos) return;
 
       const idx = errors.indexOf(err);
       const replacement = `<span class="err err--${err.type}" data-idx="${idx}" data-suggestion="${safeSugg}">${safeFrag}</span>`;
