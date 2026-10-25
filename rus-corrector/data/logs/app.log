@@ -24,3 +24,8 @@
 2026-10-24 18:29:28,766 | INFO | запрос | POST /api/check | 200 | 498977 мс
 2026-10-24 18:46:54,657 | INFO | запрос | POST /api/check | 200 | 505748 мс
 2026-10-24 18:58:34,277 | INFO | запрос | POST /api/check | 200 | 489405 мс
+2026-10-24 23:10:51,490 | ERROR | Ollama недоступна | HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=120)
+2026-10-24 23:10:51,499 | INFO | запрос | POST /api/check | 200 | 122099 мс
+2026-10-25 06:23:08,214 | WARNING | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2026-10-25 06:30:07,801 | INFO | Проверка | орфография: 31, правила: 0, применено: 6
+2026-10-25 06:30:07,816 | INFO | запрос | POST /api/check | 200 | 420880 мс
