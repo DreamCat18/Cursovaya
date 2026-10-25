@@ -5,17 +5,22 @@ import requests
 
 log = logging.getLogger("rus_corrector")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 GENERATE_URL = f"{OLLAMA_URL}/api/generate"
 
-def _generate(prompt: str, temperature: float = 0.1) -> str:
+def _generate(prompt: str, system_prompt: str = "", temperature: float = 0.1) -> str:
     try:
-        response = requests.post(
-            GENERATE_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "temperature": temperature, "stream": False},
-            timeout=OLLAMA_TIMEOUT,
-        )
+        payload = {
+            "model": OLLAMA_MODEL, 
+            "prompt": prompt, 
+            "temperature": temperature, 
+            "stream": False
+        }
+        if system_prompt:
+            payload["system"] = system_prompt
+            
+        response = requests.post(GENERATE_URL, json=payload, timeout=OLLAMA_TIMEOUT)
         response.raise_for_status()
         return response.json().get("response", "").strip()
     except Exception as exc:
@@ -31,31 +36,27 @@ def check_ollama_health() -> bool:
     except requests.RequestException:
         return False
 
-CORRECT_PROMPT = """Ты — профессиональный корректор русского языка. Твоя задача — исправить ТОЛЬКО грубые грамматические ошибки.
-Исправляй только:
-1. Согласование в роде.
-2. Падежи после предлогов.
-3. Неправильные предлоги.
+# СИСТЕМНЫЙ ПРОМПТ (жестко задает роль)
+SYSTEM_PROMPT = """Ты — узкоспециализированный корректор. Твоя единственная задача — исправить грамматические ошибки в тексте.
+Ты НЕ ведешь диалог, НЕ объясняешь правила и НЕ пишешь комментарии. Ты возвращаешь ТОЛЬКО готовый текст."""
 
-КРИТИЧЕСКИЕ ПРАВИЛА:
-- НЕ удаляй ни одного слова.
-- НЕ удаляй ни одного предложения.
-- НЕ меняй смысл слов.
-- Сохрани ВСЕ абзацы и переносы строк. Пустая строка должна остаться пустой строкой.
-- НЕ добавляй скобки и комментарии.
-- Верни ТОЛЬКО исправленный текст.
+CORRECT_PROMPT = """Исправь в тексте только падежи, предлоги и согласование в роде.
+НЕ меняй правильные слова. НЕ удаляй абзацы.
+Верни ТОЛЬКО исправленный текст без своих рассуждений.
 
 Текст:
-{text}
-
-Исправленный текст:"""
+{text}"""
 
 def correct_text(text: str) -> str:
     prompt = CORRECT_PROMPT.format(text=text)
-    result = _generate(prompt, temperature=0.0)
-    result = re.sub(r"^(Исправленный текст:?\s*)", "", result, flags=re.IGNORECASE)
-    result = re.sub(r"[\(\)]", "", result)
-    return result.strip()
+    result = _generate(prompt, system_prompt=SYSTEM_PROMPT, temperature=0.0)
+    
+    # Очистка от возможного мусора, если модель все же начала рассуждать
+    result = re.sub(r"^(Исправленный текст:?\s*|Вот исправленный текст:?\s*)", "", result, flags=re.IGNORECASE)
+    # Убираем всё, что начинается со слов "Ошибка", "В тексте" и т.д.
+    result = re.split(r"(Ошибка|В тексте|Примечание|Итоговый текст)", result)[0].strip()
+    
+    return result
 
 EXPLAIN_PROMPT = """Ты — преподаватель РКИ. Кратко объясни причину ошибки (1-2 предложения).
 Фрагмент с ошибкой: {fragment}

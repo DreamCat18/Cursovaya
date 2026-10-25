@@ -44,3 +44,4 @@
 2026-10-25 20:16:20,718 | ERROR | Не удалось загрузить SAGE | (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /ai-forever/sage-fredt5-large/resolve/main/config.json (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1006)')))"), '(Request ID: 34c22b7b-aac1-47e6-a86d-2494a40fc447)')
 2026-10-25 20:21:12,485 | INFO | запрос | POST /api/check | 200 | 346307 мс
 2026-10-25 20:34:09,254 | INFO | запрос | POST /api/check | 200 | 252783 мс
+2026-10-25 21:14:43,924 | INFO | запрос | POST /api/check | 200 | 317572 мс

@@ -37,12 +37,18 @@ class ChatResponse(BaseModel):
 async def check_text(payload: CheckRequest):
     text = payload.text.strip()
     
-    # 1. SAGE (орфография)
+    # 1. SAGE
     spell_corrected = correct_spelling(text)
     
-    # 2. LLM (грамматика)
+    # 2. LLM
     llm_corrected = correct_text(spell_corrected)
-    final_text = llm_corrected if llm_corrected else spell_corrected
+    
+    # ФИЛЬТР: Если модель написала ерунду (текст сильно длиннее оригинала или содержит слова-маркеры)
+    if not llm_corrected or len(llm_corrected) > len(spell_corrected) * 1.2 or "Ошибка" in llm_corrected or "Примечание" in llm_corrected:
+        log.warning("Модель выдала некорректный текст, используем оригинал")
+        final_text = spell_corrected
+    else:
+        final_text = llm_corrected
 
     # 3. Правила
     rule_errors = detect_errors_by_rules(final_text)
@@ -65,15 +71,13 @@ async def check_text(payload: CheckRequest):
             if frag == sugg: continue
             if "(" in frag or ")" in frag: continue
 
-            # ФИЛЬТР 1: Запрет на удаление длинных кусков (предложений, абзацев)
-            if tag == "delete" and len(frag.split()) > 3:
-                log.warning("Отброшено удаление длинного фрагмента: %s", frag[:50])
+            # ЖЕСТКИЙ ФИЛЬТР 1: Запрет на удаление
+            if tag == "delete":
                 continue
 
-            # ФИЛЬТР 2: Запрет на замену слов с разным корнем (икра -> яйцо)
+            # ЖЕСТКИЙ ФИЛЬТР 2: Запрет на замену слов с разным корнем
             if len(frag.split()) == 1 and len(sugg.split()) == 1:
                 if frag[:2].lower() != sugg[:2].lower():
-                    log.warning("Отброшена неграмматическая замена: %s -> %s", frag, sugg)
                     continue
 
             err_type = "grammar"
