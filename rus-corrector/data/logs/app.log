@@ -29,3 +29,4 @@
 2026-10-25 06:23:08,214 | WARNING | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
 2026-10-25 06:30:07,801 | INFO | Проверка | орфография: 31, правила: 0, применено: 6
 2026-10-25 06:30:07,816 | INFO | запрос | POST /api/check | 200 | 420880 мс
+2026-10-25 07:17:28,446 | INFO | запрос | POST /api/check | 200 | 419046 мс

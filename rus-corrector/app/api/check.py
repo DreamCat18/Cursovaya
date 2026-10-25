@@ -37,10 +37,10 @@ class ChatResponse(BaseModel):
 async def check_text(payload: CheckRequest):
     text = payload.text.strip()
     
-    # 1. SAGE
+    # 1. SAGE (орфография)
     spell_corrected = correct_spelling(text)
     
-    # 2. LLM
+    # 2. LLM (грамматика)
     llm_corrected = correct_text(spell_corrected)
     final_text = llm_corrected if llm_corrected else spell_corrected
 
@@ -65,8 +65,12 @@ async def check_text(payload: CheckRequest):
             if frag == sugg: continue
             if "(" in frag or ")" in frag: continue
 
-            # ФИЛЬТР: Если заменилось целое слово, и это не падежное окончание (не совпадает корень)
-            # Отбрасываем, чтобы не менять "икра" на "яйцо"
+            # ФИЛЬТР 1: Запрет на удаление длинных кусков (предложений, абзацев)
+            if tag == "delete" and len(frag.split()) > 3:
+                log.warning("Отброшено удаление длинного фрагмента: %s", frag[:50])
+                continue
+
+            # ФИЛЬТР 2: Запрет на замену слов с разным корнем (икра -> яйцо)
             if len(frag.split()) == 1 and len(sugg.split()) == 1:
                 if frag[:2].lower() != sugg[:2].lower():
                     log.warning("Отброшена неграмматическая замена: %s -> %s", frag, sugg)
