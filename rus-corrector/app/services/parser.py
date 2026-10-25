@@ -6,6 +6,7 @@ RULES = [
     (r"\bв ([А-ЯЁ][а-яё]+)(?=\s|,|\.)", "в ${1}е", "grammar", "Предлог «в» при указании места требует предложного падежа."),
 ]
 
+
 def detect_errors_by_rules(text: str) -> List[Dict[str, str]]:
     """
     Находит ошибки, используя универсальные правила.
@@ -25,6 +26,7 @@ def detect_errors_by_rules(text: str) -> List[Dict[str, str]]:
                 "reason": reason,
             })
     return errors
+
 
 def merge_errors(rule_errors: List[Dict], model_errors: List[Dict]) -> List[Dict]:
     seen = set()

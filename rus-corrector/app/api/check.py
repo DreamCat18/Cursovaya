@@ -13,8 +13,10 @@ from app.services.parser import detect_errors_by_rules, merge_errors
 router = APIRouter()
 log = logging.getLogger("rus_corrector")
 
+
 class CheckRequest(BaseModel):
     text: str = Field(...)
+
 
 class ErrorItem(BaseModel):
     type: str
@@ -22,16 +24,20 @@ class ErrorItem(BaseModel):
     suggestion: str
     reason: Optional[str] = None
 
+
 class CheckResponse(BaseModel):
     errors: List[ErrorItem]
     corrected_text: str
+
 
 class ChatRequest(BaseModel):
     question: str = Field(...)
     text: Optional[str] = Field(default="")
 
+
 class ChatResponse(BaseModel):
     answer: str
+
 
 @router.post("/check", response_model=CheckResponse)
 async def check_text(payload: CheckRequest):
@@ -83,6 +89,7 @@ async def check_text(payload: CheckRequest):
             err["reason"] = explain_error(err["fragment"], err["suggestion"], final_text)
 
     return CheckResponse(errors=all_errors, corrected_text=final_text)
+
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest):

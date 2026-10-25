@@ -1,5 +1,3 @@
-""" Рус-корректор — веб-сервер на FastAPI. Запуск: uvicorn app.main:app --reload """
-
 import logging
 from pathlib import Path
 
@@ -8,7 +6,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.check import router as check_router
-from app.api.corpus import router as corpus_router
 from app.services.ollama import check_ollama_health
 
 # ===== Логирование =====
@@ -34,9 +31,7 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
-
 app.include_router(check_router, prefix="/api", tags=["check"])
-app.include_router(corpus_router, prefix="/api", tags=["corpus"])
 
 
 @app.get("/", response_class=HTMLResponse)

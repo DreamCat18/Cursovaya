@@ -9,6 +9,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 GENERATE_URL = f"{OLLAMA_URL}/api/generate"
 
+
 def _generate(prompt: str, temperature: float = 0.1) -> str:
     try:
         response = requests.post(
@@ -21,6 +22,18 @@ def _generate(prompt: str, temperature: float = 0.1) -> str:
     except Exception as exc:
         log.error("Ollama недоступна | %s", exc)
         return ""
+
+
+def check_ollama_health() -> bool:
+    """Проверяет, запущена ли Ollama и загружена ли модель."""
+    try:
+        r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5)
+        r.raise_for_status()
+        models = [m.get("name", "") for m in r.json().get("models", [])]
+        return any(OLLAMA_MODEL.split(":")[0] in m for m in models)
+    except requests.RequestException:
+        return False
+
 
 CORRECT_PROMPT = """Ты — профессиональный корректор русского языка. Твоя задача — исправить грамматические ошибки в тексте иностранца.
 Обрати особое внимание на:
@@ -39,6 +52,7 @@ CORRECT_PROMPT = """Ты — профессиональный корректор
 
 Исправленный текст:"""
 
+
 def correct_text(text: str) -> str:
     prompt = CORRECT_PROMPT.format(text=text)
     result = _generate(prompt, temperature=0.0)
@@ -46,19 +60,23 @@ def correct_text(text: str) -> str:
     result = re.sub(r"[\(\)]", "", result)
     return result.strip()
 
+
 EXPLAIN_PROMPT = """Ты — преподаватель РКИ. Кратко объясни причину ошибки (1-2 предложения).
 Фрагмент с ошибкой: {fragment}
 Правильный вариант: {suggestion}
 Объяснение:"""
 
+
 def explain_error(fragment: str, suggestion: str, context: str) -> str:
     prompt = EXPLAIN_PROMPT.format(fragment=fragment, suggestion=suggestion)
     return _generate(prompt, temperature=0.2)
+
 
 CHAT_PROMPT = """Ты — помощник по русской грамматике. Отвечай кратко по тексту.
 Текст: {text}
 Вопрос: {question}
 Ответ:"""
+
 
 def answer_question(question: str, text: str) -> str:
     prompt = CHAT_PROMPT.format(question=question, text=text[:3000] if text else "(пусто)")
