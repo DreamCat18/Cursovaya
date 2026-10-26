@@ -230,38 +230,24 @@ button { font-family: inherit; cursor: pointer; }
 
 .status { color: var(--blue-600); font-weight: 500; }
 
-/* ===== Подсветка ошибок ===== */
-.err {
-  border-radius: 3px;
-  padding: 1px 2px;
+/* ===== Стили для встроенных правок (как в Текстоводе) ===== */
+.diff-removed {
+  color: #d32f2f;
+  text-decoration: line-through;
+  background-color: #ffebee;
+  border-radius: 2px;
+  padding: 0 2px;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.err:hover { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
-
-.err--grammar {
-  background: rgba(239, 68, 68, 0.14);
-  border-bottom: 2px solid rgba(239, 68, 68, 0.55);
-}
-
-.err--syntax {
-  background: rgba(245, 158, 11, 0.16);
-  border-bottom: 2px solid rgba(245, 158, 11, 0.6);
-}
-
-.err--lexis {
-  background: rgba(59, 130, 246, 0.14);
-  border-bottom: 2px solid rgba(59, 130, 246, 0.55);
-}
-
-.err--punct {
-  background: rgba(16, 185, 129, 0.14);
-  border-bottom: 2px solid rgba(16, 185, 129, 0.55);
-}
-
-.err--active {
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+.diff-added {
+  color: #2e7d32;
+  background-color: #e8f5e9;
+  border-radius: 2px;
+  padding: 0 2px;
+  text-decoration: underline;
+  text-decoration-color: #81c784;
+  cursor: pointer;
 }
 
 /* ===== Панель результата ===== */

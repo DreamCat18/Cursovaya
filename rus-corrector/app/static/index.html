@@ -25,6 +25,7 @@
 
   <main class="layout">
 
+    <!-- Левая панель: Редактор (в нем теперь будут отображаться правки) -->
     <section class="panel panel--editor" id="panel-editor">
       <div class="panel__head">
         <h2 class="panel__title">Ваш текст</h2>
@@ -35,6 +36,7 @@
       </div>
 
       <div class="editor__wrap">
+        <!-- contenteditable элемент для ввода и отображения HTML-правок -->
         <div
           id="editor"
           class="editor"
@@ -49,17 +51,20 @@
       </div>
     </section>
 
+    <!-- Правая панель: Результат -->
     <aside class="panel panel--errors" id="panel-errors">
       <div class="panel__head">
         <h2 class="panel__title">Результат проверки</h2>
         <span class="badge" id="errors-count">0</span>
       </div>
 
+      <!-- Вкладки -->
       <div class="result-tabs">
         <button class="result-tab result-tab--active" data-result="errors">Ошибки</button>
         <button class="result-tab" data-result="corrected">Исправленный текст</button>
       </div>
 
+      <!-- Вкладка 1: Список ошибок -->
       <div class="result-pane" id="pane-errors">
         <div class="errors__filters">
           <button class="chip chip--active" data-filter="all">Все</button>
@@ -77,6 +82,7 @@
         </ul>
       </div>
 
+      <!-- Вкладка 2: Исправленный текст -->
       <div class="result-pane" id="pane-corrected" hidden>
         <div class="corrected__wrap">
           <div class="corrected__text" id="corrected-text">
@@ -85,7 +91,7 @@
         </div>
         <div class="corrected__actions">
           <button class="btn btn--primary" id="btn-copy-corrected" disabled>
-            Скопировать исправленный текст
+            Скопировать чистовик
           </button>
         </div>
       </div>
@@ -93,6 +99,7 @@
 
   </main>
 
+  <!-- Модальное окно: Чат -->
   <div class="modal" id="modal-chat" hidden>
     <div class="modal__backdrop" data-close></div>
     <div class="modal__box modal__box--chat">
@@ -114,6 +121,7 @@
     </div>
   </div>
 
+  <!-- Модальное окно: Справка -->
   <div class="modal" id="modal-help" hidden>
     <div class="modal__backdrop" data-close></div>
     <div class="modal__box">

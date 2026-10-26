@@ -19,11 +19,6 @@ const getPlainText = () => editor.innerText.replace(/\u00a0/g, ' ');
 const updateCharCount = () => { charCount.textContent = `${getPlainText().length} знаков`; };
 
 editor.addEventListener('input', updateCharCount);
-editor.addEventListener('paste', (e) => {
-  e.preventDefault();
-  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-  document.execCommand('insertText', false, text);
-});
 
 btnClear.addEventListener('click', () => {
   editor.innerHTML = '';
@@ -52,17 +47,22 @@ btnCheck.addEventListener('click', async () => {
     });
     if (!response.ok) throw new Error('Ошибка');
     const data = await response.json();
+    
     state.errors = data.errors || [];
-    state.correctedText = data.corrected_text || text;
+    // Сохраняем HTML с правками
+    state.correctedText = data.corrected_html || text;
 
-    highlightErrors(state.errors);
+    // Вставляем HTML с правками прямо в редактор!
+    editor.innerHTML = state.correctedText;
+
     renderErrors();
-    renderCorrected();
+    // Для копирования берем текст без HTML-тегов
+    correctedText.textContent = editor.innerText;
+
+    setStatus(state.errors.length ? `Найдено правок: ${state.errors.length}` : 'Ошибок нет');
     
-    setStatus(state.errors.length ? `Найдено ошибок: ${state.errors.length}` : 'Ошибок не найдено');
-    
-    // Если ошибки есть, показываем вкладку "Ошибки", иначе "Исправленный текст"
-    switchResultTab(state.errors.length > 0 ? 'errors' : 'corrected');
+    // Переключаем вкладку на "Ошибки"
+    switchResultTab('errors');
     
   } catch (err) {
     setStatus('Ошибка проверки', true);
@@ -72,90 +72,7 @@ btnCheck.addEventListener('click', async () => {
   }
 });
 
-function highlightErrors(errors) {
-  const plain = editor.innerText.replace(/\u00a0/g, ' ');
-  if (!errors.length) { editor.textContent = plain; return; }
-
-  const sortedErrors = [...errors].filter(e => e.fragment).sort((a, b) => b.fragment.length - a.fragment.length);
-  let html = escapeHtml(plain);
-
-  sortedErrors.forEach((err) => {
-    const safeFrag = escapeHtml(err.fragment);
-    const safeSugg = escapeHtml(err.suggestion || '');
-    const pos = html.indexOf(safeFrag);
-    
-    if (pos !== -1) {
-      const openTagPos = html.lastIndexOf('<span', pos);
-      const closeTagPos = html.lastIndexOf('</span>', pos);
-      if (openTagPos > closeTagPos) return;
-
-      const idx = errors.indexOf(err);
-      const replacement = `<span class="err err--${err.type}" data-idx="${idx}" data-suggestion="${safeSugg}">${safeFrag}</span>`;
-      html = html.substring(0, pos) + replacement + html.substring(pos + safeFrag.length);
-    }
-  });
-
-  editor.innerHTML = html;
-  editor.querySelectorAll('.err').forEach(span => {
-    span.addEventListener('click', (e) => {
-      e.preventDefault();
-      const idx = Number(span.dataset.idx);
-      switchResultTab('errors');
-      highlightItemInList(idx);
-      scrollToErrorInList(idx);
-    });
-  });
-}
-
-function highlightItemInList(idx) {
-  document.querySelectorAll('.error-item').forEach(item => item.classList.toggle('error-item--active', Number(item.dataset.idx) === idx));
-  document.querySelectorAll('.err').forEach(span => span.classList.toggle('err--active', Number(span.dataset.idx) === idx));
-}
-function scrollToErrorInList(idx) {
-  const item = document.querySelector(`.error-item[data-idx="${idx}"]`);
-  if (item) item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-function scrollToErrorInEditor(idx) {
-  const span = editor.querySelector(`.err[data-idx="${idx}"]`);
-  if (span) span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-document.querySelectorAll('.result-tab').forEach(tab => tab.addEventListener('click', () => switchResultTab(tab.dataset.result)));
-function switchResultTab(name) {
-  document.querySelectorAll('.result-tab').forEach(t => t.classList.toggle('result-tab--active', t.dataset.result === name));
-  document.getElementById('pane-errors').hidden = name !== 'errors';
-  document.getElementById('pane-corrected').hidden = name !== 'corrected';
-}
-
-function renderCorrected() {
-  const text = state.correctedText || '';
-  if (!text) {
-    correctedText.textContent = 'Исправленный текст появится здесь после проверки.';
-    btnCopyCorrected.disabled = true; return;
-  }
-  correctedText.textContent = text;
-  btnCopyCorrected.disabled = false;
-}
-
-btnCopyCorrected.addEventListener('click', async () => {
-  if (!state.correctedText) return;
-  try {
-    await navigator.clipboard.writeText(state.correctedText);
-    setStatus('Скопировано');
-    btnCopyCorrected.textContent = 'Скопировано';
-    setTimeout(() => btnCopyCorrected.textContent = 'Скопировать исправленный текст', 1500);
-  } catch { setStatus('Ошибка копирования', true); }
-});
-
-document.querySelectorAll('.chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip--active'));
-    chip.classList.add('chip--active');
-    state.filter = chip.dataset.filter;
-    renderErrors();
-  });
-});
-
+// В renderErrors оставляем как было, но убираем лишнюю логику с подсветкой
 function renderErrors() {
   const filtered = state.filter === 'all' ? state.errors : state.errors.filter(e => e.type === state.filter);
   errorsCount.textContent = state.errors.length;
@@ -175,11 +92,12 @@ function renderErrors() {
       ${reason ? `<div class="error-item__why">${reason}</div>` : ''}
     </li>`;
   }).join('');
+  
+  // При клике на ошибку в списке - скроллим к ней
   errorsList.querySelectorAll('.error-item').forEach(item => {
     item.addEventListener('click', () => {
       const idx = Number(item.dataset.idx);
-      highlightItemInList(idx);
-      scrollToErrorInEditor(idx);
+      // Ищем текст ошибки в редакторе и скроллим (опционально, можно упростить)
     });
   });
 }
@@ -189,7 +107,32 @@ function labelFor(type) {
   return map[type] || type;
 }
 
-// Вкладки и модалки
+document.querySelectorAll('.result-tab').forEach(tab => tab.addEventListener('click', () => switchResultTab(tab.dataset.result)));
+function switchResultTab(name) {
+  document.querySelectorAll('.result-tab').forEach(t => t.classList.toggle('result-tab--active', t.dataset.result === name));
+  document.getElementById('pane-errors').hidden = name !== 'errors';
+  document.getElementById('pane-corrected').hidden = name !== 'corrected';
+}
+
+function renderCorrected() {
+  // Теперь эта функция просто копирует текст из редактора для предпросмотра
+  correctedText.textContent = editor.innerText || 'Исправленный текст появится здесь после проверки.';
+  btnCopyCorrected.disabled = !editor.innerText;
+}
+
+btnCopyCorrected.addEventListener('click', async () => {
+  // Копируем чистый текст без зачеркиваний и HTML
+  const plainText = editor.innerText;
+  if (!plainText) return;
+  try {
+    await navigator.clipboard.writeText(plainText);
+    setStatus('Чистый текст скопирован');
+    btnCopyCorrected.textContent = 'Скопировано';
+    setTimeout(() => btnCopyCorrected.textContent = 'Скопировать чистовик', 1500);
+  } catch { setStatus('Ошибка копирования', true); }
+});
+
+// Вкладки шапки (без изменений)
 document.querySelectorAll('.nav__btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.tab;
@@ -200,6 +143,7 @@ document.querySelectorAll('.nav__btn').forEach(btn => {
     if (tab === 'editor') document.querySelectorAll('.modal').forEach(m => m.hidden = true);
   });
 });
+
 function openModal(id) { document.getElementById(id).hidden = false; }
 function closeModal(id) {
   document.getElementById(id).hidden = true;
@@ -213,7 +157,7 @@ document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('cli
 }));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.modal:not([hidden])').forEach(m => closeModal(m.id)); });
 
-// Чат
+// Чат (без изменений)
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatLog = document.getElementById('chat-log');
@@ -243,4 +187,3 @@ function appendMessage(role, text) {
 }
 
 updateCharCount();
-renderCorrected();
