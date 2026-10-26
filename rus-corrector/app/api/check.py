@@ -51,7 +51,15 @@ async def check_text(payload: CheckRequest):
     else:
         final_text = llm_corrected
 
-    # 3. Сравнение
+    # 3. ОЧИСТКА ОТ МУСОРА (скобок, лишних пробелов)
+    # Удаляем пустые скобки, которые могла добавить модель
+    final_text = re.sub(r"\(\s*\)", "", final_text)
+    # Убираем лишние пробелы перед переносами строк
+    final_text = re.sub(r"[ \t]+\n", "\n", final_text)
+    # Убираем множественные пустые строки (оставляем максимум 2 для абзацев)
+    final_text = re.sub(r"\n{3,}", "\n\n", final_text)
+
+    # 4. Сравнение
     errors = []
     if spell_corrected != final_text:
         orig_tokens = re.findall(r'\w+|[^\w\s]|\s+', spell_corrected)
