@@ -1,4 +1,4 @@
-const state = { errors: [], correctedText: '', filter: 'all', checking: false };
+const state = { errors: [], originalText: '', correctedText: '', filter: 'all', checking: false };
 
 const editor = document.getElementById('editor');
 const charCount = document.getElementById('char-count');
@@ -23,6 +23,7 @@ editor.addEventListener('input', updateCharCount);
 btnClear.addEventListener('click', () => {
   editor.innerHTML = '';
   state.errors = [];
+  state.originalText = '';
   state.correctedText = '';
   renderErrors();
   renderCorrected();
@@ -47,11 +48,12 @@ btnCheck.addEventListener('click', async () => {
     if (!response.ok) throw new Error('Ошибка');
     const data = await response.json();
     
+    state.originalText = text;
     state.errors = data.errors || [];
     state.correctedText = data.corrected_text || text;
 
-    // Вставляем текст с правками в редактор
-    highlightErrors(state.errors);
+    // Подсветка строится по координатам, а не по поиску первого совпадения.
+    highlightErrors(state.errors, state.originalText);
 
     renderErrors();
     renderCorrected();
@@ -66,28 +68,28 @@ btnCheck.addEventListener('click', async () => {
   }
 });
 
-function highlightErrors(errors) {
-  // Берем исходный текст с сервера, чтобы не ломать HTML
-  const plain = state.correctedText; 
-  if (!errors.length) { editor.textContent = plain; return; }
+function highlightErrors(errors, originalText) {
+  const ranges = errors
+    .map((err, idx) => ({ ...err, idx, start: Number(err.start), end: Number(err.end) }))
+    .filter(err => Number.isInteger(err.start) && Number.isInteger(err.end)
+      && err.start >= 0 && err.end >= err.start && err.end <= originalText.length)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
 
-  // Ищем каждую ошибку в тексте и оборачиваем в span
-  let html = escapeHtml(getPlainText());
-  
-  const sortedErrors = [...errors].filter(e => e.fragment).sort((a, b) => b.fragment.length - a.fragment.length);
-
-  sortedErrors.forEach((err) => {
-    const safeFrag = escapeHtml(err.fragment);
-    const safeSugg = escapeHtml(err.suggestion || '');
-    const pos = html.indexOf(safeFrag);
-    
-    if (pos !== -1) {
-      const idx = errors.indexOf(err);
-      const replacement = `<span class="err err--${err.type}" data-idx="${idx}" data-suggestion="${safeSugg}">${safeFrag}</span>`;
-      html = html.substring(0, pos) + replacement + html.substring(pos + safeFrag.length);
+  let cursor = 0;
+  let html = '';
+  for (const err of ranges) {
+    if (err.start < cursor) continue;
+    html += escapeHtml(originalText.slice(cursor, err.start));
+    if (err.end === err.start) {
+      // Вставленная запятая не существует в исходнике: ставим кликабельный маркер
+      // точно в позицию вставки, чтобы карточка всё равно имела связь с текстом.
+      html += `<span class="err-marker err-marker--${escapeHtml(err.type)}" data-idx="${err.idx}" title="Пунктуационное исправление">│</span>`;
+    } else {
+      html += `<span class="err err--${escapeHtml(err.type)}" data-idx="${err.idx}" title="Нажмите, чтобы увидеть исправление">${escapeHtml(originalText.slice(err.start, err.end))}</span>`;
     }
-  });
-
+    cursor = err.end;
+  }
+  html += escapeHtml(originalText.slice(cursor));
   editor.innerHTML = html;
 }
 
@@ -127,9 +129,35 @@ function switchResultTab(name) {
 function renderCorrected() {
   if (!state.correctedText) {
     correctedText.textContent = 'Исправленный текст появится здесь после проверки.';
-    btnCopyCorrected.disabled = true; return;
+    btnCopyCorrected.disabled = true;
+    return;
   }
-  correctedText.textContent = state.correctedText;
+
+  const ranges = state.errors
+    .map((err, idx) => ({
+      ...err, idx,
+      start: Number(err.corrected_start),
+      end: Number(err.corrected_end)
+    }))
+    .filter(err => Number.isInteger(err.start) && Number.isInteger(err.end)
+      && err.start >= 0 && err.end >= err.start && err.end <= state.correctedText.length)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  let cursor = 0;
+  let html = '';
+  for (const err of ranges) {
+    if (err.start < cursor) continue;
+    html += escapeHtml(state.correctedText.slice(cursor, err.start));
+    if (err.end === err.start) {
+      // Если в чистовике позиция нулевая (например, удаление), оставляем маркер связи.
+      html += `<span class="corrected-marker" data-idx="${err.idx}" title="Показать объяснение">│</span>`;
+    } else {
+      html += `<span class="corrected-change" data-idx="${err.idx}" title="Нажмите, чтобы увидеть объяснение">${escapeHtml(state.correctedText.slice(err.start, err.end))}</span>`;
+    }
+    cursor = err.end;
+  }
+  html += escapeHtml(state.correctedText.slice(cursor));
+  correctedText.innerHTML = html;
   btnCopyCorrected.disabled = false;
 }
 
@@ -204,5 +232,45 @@ function appendMessage(role, text) {
   chatLog.scrollTop = chatLog.scrollHeight;
   return div;
 }
+
+
+function focusError(idx, source = true) {
+  switchResultTab('errors');
+  const card = errorsList.querySelector(`.error-item[data-idx="${idx}"]`);
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('error-item--active');
+    window.setTimeout(() => card.classList.remove('error-item--active'), 1300);
+  }
+  const selector = source ? `.err[data-idx="${idx}"], .err-marker[data-idx="${idx}"]`
+                          : `.corrected-change[data-idx="${idx}"], .corrected-marker[data-idx="${idx}"]`;
+  const target = (source ? editor : correctedText).querySelector(selector);
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('err--active');
+    window.setTimeout(() => target.classList.remove('err--active'), 1300);
+  }
+}
+
+editor.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-idx]');
+  if (target) focusError(Number(target.dataset.idx), true);
+});
+correctedText.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-idx]');
+  if (target) focusError(Number(target.dataset.idx), false);
+});
+errorsList.addEventListener('click', (event) => {
+  const card = event.target.closest('.error-item[data-idx]');
+  if (card) {
+    const idx = Number(card.dataset.idx);
+    const target = editor.querySelector(`.err[data-idx="${idx}"], .err-marker[data-idx="${idx}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('err--active');
+      window.setTimeout(() => target.classList.remove('err--active'), 1300);
+    }
+  }
+});
 
 updateCharCount();
