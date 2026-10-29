@@ -52,7 +52,6 @@ btnCheck.addEventListener('click', async () => {
     state.errors = data.errors || [];
     state.correctedText = data.corrected_text || text;
 
-    // Подсветка строится по координатам, а не по поиску первого совпадения.
     highlightErrors(state.errors, state.originalText);
 
     renderErrors();
@@ -81,8 +80,6 @@ function highlightErrors(errors, originalText) {
     if (err.start < cursor) continue;
     html += escapeHtml(originalText.slice(cursor, err.start));
     if (err.end === err.start) {
-      // Вставленная запятая не существует в исходнике: ставим кликабельный маркер
-      // точно в позицию вставки, чтобы карточка всё равно имела связь с текстом.
       html += `<span class="err-marker err-marker--${escapeHtml(err.type)}" data-idx="${err.idx}" title="Пунктуационное исправление">│</span>`;
     } else {
       html += `<span class="err err--${escapeHtml(err.type)}" data-idx="${err.idx}" title="Нажмите, чтобы увидеть исправление">${escapeHtml(originalText.slice(err.start, err.end))}</span>`;
@@ -107,7 +104,7 @@ function renderErrors() {
     const reason = err.reason ? escapeHtml(err.reason) : '';
     return `<li class="error-item" data-idx="${idx}">
       <div class="error-item__top"><span class="error-item__type type--${err.type}">${labelFor(err.type)}</span></div>
-      <div class="error-item__frag">${frag}</div>
+      <div class="error-item__frag">${frag || '(пропущено)'}</div>
       <div class="error-item__fix">→ ${sugg || 'удалить'}</div>
       ${reason ? `<div class="error-item__why">${reason}</div>` : ''}
     </li>`;
@@ -115,8 +112,8 @@ function renderErrors() {
 }
 
 function labelFor(type) {
-  const map = { grammar: 'Грамматика', syntax: 'Синтаксис', lexis: 'Лексика', punct: 'Пунктуация' };
-  return map[type] || type;
+  const map = { grammar: 'Грамматика', punct: 'Пунктуация' };
+  return map[type] || 'Грамматика';
 }
 
 document.querySelectorAll('.result-tab').forEach(tab => tab.addEventListener('click', () => switchResultTab(tab.dataset.result)));
@@ -133,31 +130,9 @@ function renderCorrected() {
     return;
   }
 
-  const ranges = state.errors
-    .map((err, idx) => ({
-      ...err, idx,
-      start: Number(err.corrected_start),
-      end: Number(err.corrected_end)
-    }))
-    .filter(err => Number.isInteger(err.start) && Number.isInteger(err.end)
-      && err.start >= 0 && err.end >= err.start && err.end <= state.correctedText.length)
-    .sort((a, b) => a.start - b.start || a.end - b.end);
-
-  let cursor = 0;
-  let html = '';
-  for (const err of ranges) {
-    if (err.start < cursor) continue;
-    html += escapeHtml(state.correctedText.slice(cursor, err.start));
-    if (err.end === err.start) {
-      // Если в чистовике позиция нулевая (например, удаление), оставляем маркер связи.
-      html += `<span class="corrected-marker" data-idx="${err.idx}" title="Показать объяснение">│</span>`;
-    } else {
-      html += `<span class="corrected-change" data-idx="${err.idx}" title="Нажмите, чтобы увидеть объяснение">${escapeHtml(state.correctedText.slice(err.start, err.end))}</span>`;
-    }
-    cursor = err.end;
-  }
-  html += escapeHtml(state.correctedText.slice(cursor));
-  correctedText.innerHTML = html;
+  // Для исправленного текста мы больше не используем start/end из исходника,
+  // так как длины слов могли измениться. Мы просто выводим чистый текст.
+  correctedText.textContent = state.correctedText;
   btnCopyCorrected.disabled = false;
 }
 
@@ -180,7 +155,7 @@ document.querySelectorAll('.chip').forEach(chip => {
   });
 });
 
-// Вкладки шапки (без изменений)
+// Вкладки шапки
 document.querySelectorAll('.nav__btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.tab;
@@ -204,7 +179,7 @@ document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('cli
 }));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.modal:not([hidden])').forEach(m => closeModal(m.id)); });
 
-// Чат (без изменений)
+// Чат
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatLog = document.getElementById('chat-log');
@@ -233,7 +208,6 @@ function appendMessage(role, text) {
   return div;
 }
 
-
 function focusError(idx, source = true) {
   switchResultTab('errors');
   const card = errorsList.querySelector(`.error-item[data-idx="${idx}"]`);
@@ -242,9 +216,8 @@ function focusError(idx, source = true) {
     card.classList.add('error-item--active');
     window.setTimeout(() => card.classList.remove('error-item--active'), 1300);
   }
-  const selector = source ? `.err[data-idx="${idx}"], .err-marker[data-idx="${idx}"]`
-                          : `.corrected-change[data-idx="${idx}"], .corrected-marker[data-idx="${idx}"]`;
-  const target = (source ? editor : correctedText).querySelector(selector);
+  const selector = `.err[data-idx="${idx}"], .err-marker[data-idx="${idx}"]`;
+  const target = editor.querySelector(selector);
   if (target) {
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     target.classList.add('err--active');
@@ -256,21 +229,9 @@ editor.addEventListener('click', (event) => {
   const target = event.target.closest('[data-idx]');
   if (target) focusError(Number(target.dataset.idx), true);
 });
-correctedText.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-idx]');
-  if (target) focusError(Number(target.dataset.idx), false);
-});
 errorsList.addEventListener('click', (event) => {
   const card = event.target.closest('.error-item[data-idx]');
-  if (card) {
-    const idx = Number(card.dataset.idx);
-    const target = editor.querySelector(`.err[data-idx="${idx}"], .err-marker[data-idx="${idx}"]`);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('err--active');
-      window.setTimeout(() => target.classList.remove('err--active'), 1300);
-    }
-  }
+  if (card) focusError(Number(card.dataset.idx), true);
 });
 
 updateCharCount();
