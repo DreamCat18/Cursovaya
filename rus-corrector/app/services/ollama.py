@@ -36,6 +36,9 @@ def check_ollama_health() -> bool:
     except requests.RequestException:
         return False
 
+# ==========================================
+# 1. ИСПРАВЛЕНИЕ ТЕКСТА
+# ==========================================
 SYSTEM_PROMPT = """Ты — профессиональный лингвист-корректор. 
 Твоя задача — исправлять ТОЛЬКО ошибки, не меняя смысл, стиль и структуру текста. 
 Ты не ведешь диалог, не объясняешь правила и не пишешь комментарии.
@@ -61,37 +64,58 @@ def correct_text(text: str) -> str:
     result = re.sub(r"</?text>", "", result, flags=re.IGNORECASE)
     return result.strip()
 
-EXPLAIN_PROMPT = """Объясни исправление по-русски ОДНИМ коротким предложением (не более 18 слов).
-Не пересказывай контекст, не повторяй исправление, не используй вводные фразы.
-Если правило нельзя уверенно определить, напиши: «Так правильно по нормам русского языка».
-Фрагмент: {fragment}
-Исправление: {suggestion}
-Краткое объяснение:"""
+# ==========================================
+# 2. ОБЪЯСНЕНИЕ ОШИБОК (СПИСОК СЛЕВА)
+# ==========================================
+EXPLAIN_SYSTEM_PROMPT = """Ты — преподаватель русского языка как иностранного.
+Твоя задача — дать ОДНО короткое и понятное объяснение ошибки.
+Не пиши вводных слов, не пересказывай текст, отвечай строго по делу."""
 
+EXPLAIN_PROMPT = """Кратко объясни, почему вариант «{suggestion}» правильнее, чем «{fragment}».
+Ответ должен быть не длиннее 15 слов.
+Если это пунктуация, просто напиши: «Нужна запятая» или «Лишний знак».
+Объяснение:"""
 
 def explain_error(fragment: str, suggestion: str, context: str = "") -> str:
     prompt = EXPLAIN_PROMPT.format(
         fragment=fragment or "(пропущенный знак)",
-        suggestion=suggestion or "(удалить фрагмент)",
+        suggestion=suggestion or "(удалить)",
     )
-    result = _generate(prompt, temperature=0.0)
+    result = _generate(prompt, system_prompt=EXPLAIN_SYSTEM_PROMPT, temperature=0.0)
+    
     if not result:
         return "Исправление соответствует нормам русского языка."
-    # Защита интерфейса от многословного ответа модели.
+        
+    # Защита интерфейса от многословного ответа модели
     result = re.sub(r"^(объяснение|краткое объяснение)\s*:\s*", "", result, flags=re.I)
     result = re.sub(r"\s+", " ", result).strip().strip('"«» ')
+    
+    # Обрезаем, если модель начала писать слишком много
     sentences = re.split(r"(?<=[.!?])\s+", result)
     result = sentences[0] if sentences else result
-    words = result.split()
-    if len(words) > 22:
-        result = " ".join(words[:22]).rstrip(" ,;:") + "…"
+    if len(result.split()) > 25:
+        result = " ".join(result.split()[:25]) + "..."
+        
     return result or "Исправление соответствует нормам русского языка."
 
-CHAT_PROMPT = """Ты — помощник по русской грамматике. Отвечай кратко по тексту.
-Текст: {text}
-Вопрос: {question}
-Ответ:"""
+# ==========================================
+# 3. ЧАТ С ПОМОЩНИКОМ
+# ==========================================
+CHAT_SYSTEM_PROMPT = """Ты — вежливый и точный помощник по русской грамматике. 
+Твоя задача — отвечать на вопросы пользователя, связанные с правилами русского языка.
+Если пользователь спрашивает о правиле, объясняй его понятно и приводи примеры.
+НЕ ВЫДУМЫВАЙ слова, которых нет в вопросе. Если не знаешь ответа, вежливо скажи об этом."""
+
+CHAT_PROMPT = """Вопрос пользователя: {question}
+
+Текст пользователя (контекст): 
+{text}
+
+Твой ответ:"""
 
 def answer_question(question: str, text: str) -> str:
-    prompt = CHAT_PROMPT.format(question=question, text=text[:3000] if text else "(пусто)")
-    return _generate(prompt, temperature=0.3)
+    prompt = CHAT_PROMPT.format(
+        question=question, 
+        text=text[:3000] if text else "(пользователь не прикрепил текст)"
+    )
+    return _generate(prompt, system_prompt=CHAT_SYSTEM_PROMPT, temperature=0.4)
