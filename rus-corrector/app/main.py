@@ -9,7 +9,6 @@ from app.api.check import router as check_router
 from app.api.corpus import router as corpus_router
 from app.services.ollama import check_ollama_health
 
-# ===== Логирование =====
 LOG_DIR = Path("data/logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 

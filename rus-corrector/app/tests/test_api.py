@@ -18,7 +18,6 @@ def test_tc01_check_text_with_errors():
     assert response.status_code == 200
     data = response.json()
     assert "corrected_text" in data
-    # Проверяем, что API вернул ответ (даже если ошибок 0)
     assert isinstance(data["errors"], list)
 
 
@@ -36,11 +35,9 @@ def test_tc03_grammar_case_error():
     assert response.status_code == 200
     data = response.json()
     
-    # Если ошибок нет — выводим предупреждение, но тест не падает
     if len(data["errors"]) == 0:
         warnings.warn("Модель не нашла ошибку в падеже (возможно, Ollama не запущена)")
     else:
-        # Если ошибки есть, проверяем, что они относятся к грамматике
         assert any(err["type"] == "grammar" for err in data["errors"])
 
 
@@ -73,7 +70,6 @@ def test_tc09_protected_it_slang():
     response = client.post("/api/check", json={"text": "Завтра у нас созвон по проекту."})
     assert response.status_code == 200
     data = response.json()
-    # Слово "созвон" не должно меняться, даже если модель не сработала
     assert "созвон" in data["corrected_text"].lower()
 
 

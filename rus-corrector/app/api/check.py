@@ -40,10 +40,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-
-# ==========================================
-# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-# ==========================================
+    
 
 def apply_fallback_rules(text: str) -> str:
     """
@@ -78,10 +75,6 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
-
-# ==========================================
-# ЭНДПОИНТЫ
-# ==========================================
 
 @router.post("/check", response_model=CheckResponse)
 async def check_text(payload: CheckRequest):
