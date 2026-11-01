@@ -8,12 +8,16 @@ from pydantic import BaseModel, Field
 
 from app.services.spell_corrector import correct_spelling
 from app.services.ollama import correct_text, explain_error, answer_question
+from app.db import save_history  
 
 router = APIRouter()
 log = logging.getLogger("rus_corrector")
 
 # Слова, которые нельзя менять (IT-сленг)
-FORBIDDEN_WORDS = re.compile(r"(?<!\w)(?:созвон\w*|позвон\w*|звонок\w*|код\w*|кодить|баг\w*|фикс\w*)(?!\w)", re.IGNORECASE)
+FORBIDDEN_WORDS = re.compile(
+    r"(?<!\w)(?:созвон\w*|позвон\w*|звонок\w*|код\w*|кодить|баг\w*|фикс\w*)(?!\w)",
+    re.IGNORECASE,
+)
 
 class CheckRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=20_000)
@@ -178,6 +182,9 @@ async def check_text(payload: CheckRequest):
                 ) or "Грамматическая ошибка."
             except Exception:
                 err["reason"] = "Грамматическая ошибка."
+
+    # 7. Сохранение истории в БД (если БД доступна)
+    save_history(original_text, final_text, len(errors))
 
     return CheckResponse(errors=errors, corrected_text=final_text)
 
