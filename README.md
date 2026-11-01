@@ -79,17 +79,17 @@ rus-corrector/
 └── README.md         # Этот файл
 ```
 ## Описание модулей
-
+```
 Модуль	Описание
 app/api/check.py	Обработка текста: вызов моделей, сравнение, сохранение истории
 app/services/ollama.py	Клиент для Qwen2.5 через Ollama
 app/services/spell_corrector.py	Клиент для SAGE (орфография)
 app/db.py	Настройка SQLAlchemy и сохранение истории
 app/static/js/app.js	Клиентская логика и подсветка ошибок
-
+```
 ## Тестирование
 
-bash
+```bash
 # Тесты API
 pytest app/tests/test_api.py -v
 
@@ -97,7 +97,7 @@ pytest app/tests/test_api.py -v
 pytest app/tests/test_ui.py -v
 Документация
 Подробное руководство оператора и администратора находится в файле README.md (раздел «Руководство оператора»).
-
+```
 ## Автор
 Запубина А. А., группа ИСП-31, 2026 г.
 
